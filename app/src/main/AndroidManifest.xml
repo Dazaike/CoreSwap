@@ -31,8 +31,10 @@
             android:exported="true"
             android:label="@string/activity_anc"
             android:launchMode="singleTop"
+            android:finishOnTaskLaunch="true"
             android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:taskAffinity=""
+            android:theme="@style/Theme.CoreSwap.Headless">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -45,8 +47,10 @@
             android:exported="true"
             android:label="@string/activity_transparency"
             android:launchMode="singleTop"
+            android:finishOnTaskLaunch="true"
             android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:taskAffinity=""
+            android:theme="@style/Theme.CoreSwap.Headless">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -59,13 +63,29 @@
             android:exported="true"
             android:label="@string/activity_normal"
             android:launchMode="singleTop"
+            android:finishOnTaskLaunch="true"
             android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:taskAffinity=""
+            android:theme="@style/Theme.CoreSwap.Headless">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Placeholder service that only keeps the process warm; see KeepAliveService. -->
+        <service
+            android:name="com.coreswap.core.KeepAliveService"
+            android:exported="true"
+            android:label="@string/keep_alive_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
     </application>
 
 </manifest>

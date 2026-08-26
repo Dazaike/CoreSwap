@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder service: it exists only to keep the CoreSwap process warm.
+  No accessibilityEventTypes are requested and window content is not retrievable, so the service
+  receives nothing about what is on screen.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/keep_alive_description"
+    android:notificationTimeout="0"
+    android:summary="@string/keep_alive_summary" />

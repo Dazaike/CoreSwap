@@ -9,6 +9,9 @@ import android.media.AudioManager
 import android.util.Log
 import com.coreswap.lib.wrapper.PairedDevice
 import kotlin.coroutines.resume
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -51,10 +54,13 @@ suspend fun connectedMacs(context: Context): Set<String> {
         Log.w(TAG, "no bluetooth adapter")
         return emptySet()
     }
-    return buildSet {
-        for (profile in intArrayOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)) {
-            addAll(connectedMacsForProfile(context, adapter, profile))
-        }
+    // Queried concurrently: each proxy bind has its own timeout, and doing them in sequence put
+    // that wait on the mode-switch path twice.
+    return coroutineScope {
+        listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)
+            .map { profile -> async { connectedMacsForProfile(context, adapter, profile) } }
+            .awaitAll()
+            .flatMapTo(HashSet()) { it }
     }
 }
 

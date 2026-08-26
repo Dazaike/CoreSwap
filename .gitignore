@@ -3,6 +3,8 @@
 /app/build
 /buildSrc/build
 /.tmpdl
+/.tmpshot*.png
+.kotlin/
 local.properties
 /external/OpenSCQ30/target
 *.hprof

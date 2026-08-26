@@ -1,6 +1,6 @@
 # CoreSwap
 
-Version **0.1.0**
+Version **0.2.0**
 
 Switches the ambient sound mode of Anker Soundcore headphones and earbuds from the app or, more
 usefully, from separately launchable activities that MacroDroid (or any launcher/automation tool)
@@ -48,6 +48,18 @@ activities, use **Launch Application** instead; both intent filters are present 
 Failures always toast. Success toasts are controlled by the **Show confirmation toast** switch in
 the app (default on).
 
+## Keeping switches instant
+
+A cold start has to load the 22 MB engine before it can talk to the earbuds, which makes the first
+switch after a while noticeably slow. The **Keep running in background** row in the app opens
+accessibility settings, where enabling **CoreSwap keep-alive** lets Android keep the process bound
+and restart it if it dies. On connect, the service opens the engine session so the mode-switch path
+pays for neither the cold start nor the first database read.
+
+The service is a deliberate no-op: it requests no accessibility event types and declares
+`canRetrieveWindowContent="false"`, so it is never told what is on screen. It is optional — mode
+switching works with it off, just slower. Only the user can enable it; the app cannot.
+
 ## Building
 
 Requires the Android SDK (platform 37, build-tools 37.0.0), NDK `29.0.14206865`, JDK 21, a Rust
@@ -79,6 +91,25 @@ it to the platform.
 
 Mode switching writes the `ambientSoundMode` setting with one of the values `NoiseCanceling`,
 `Transparency`, or `Normal`. Devices that do not expose that setting report an error toast instead.
+
+## Changelog
+
+### 0.2.0
+
+- Added the optional **CoreSwap keep-alive** accessibility service, which keeps the process warm
+  and pre-opens the engine session so mode switches respond immediately. Toggle discoverable from
+  the main screen; enabling it is up to the user.
+- Mode activities use a dedicated `Theme.CoreSwap.Headless` with an empty `taskAffinity` and
+  `finishOnTaskLaunch`, so triggering a mode never leaves a stray task or steals the recents entry.
+- The app is dark only: the window background is pinned and Compose uses `darkColorScheme()`, which
+  removes the white flash on launch. Dropped the API-29 theme override.
+- A2DP and HEADSET connection state is queried concurrently instead of sequentially, halving the
+  worst-case profile-proxy wait on the mode-switch path.
+- Successful switches log the device and resulting mode.
+
+### 0.1.0
+
+- Initial release: mode switching from the app and from the three directly launchable activities.
 
 ## License
 

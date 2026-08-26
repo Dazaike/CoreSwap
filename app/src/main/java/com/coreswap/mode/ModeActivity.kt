@@ -18,6 +18,7 @@ abstract class ModeActivity(private val mode: String) : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val modelName = ModeSwitcher.apply(applicationContext, lifecycleScope, mode)
+                Log.i("CoreSwap", "switched $modelName to ${ModeSwitcher.label(mode)}")
                 if (Prefs.toastOnSuccess(this@ModeActivity)) {
                     toast("$modelName: ${ModeSwitcher.label(mode)}")
                 }

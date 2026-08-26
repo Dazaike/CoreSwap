@@ -2,8 +2,11 @@ package com.coreswap.ui
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.coreswap.bluetooth.connectedMacs
 import com.coreswap.bluetooth.hasBluetoothConnectPermission
+import com.coreswap.core.KeepAliveService
 import com.coreswap.core.Prefs
 import com.coreswap.core.SessionHolder
 import com.coreswap.lib.bindings.deviceModels
@@ -56,13 +61,14 @@ class MainActivity : ComponentActivity() {
     private var paired by mutableStateOf<List<PairedDevice>>(emptyList())
     private var connected by mutableStateOf<Set<String>>(emptySet())
     private var busy by mutableStateOf(false)
+    private var keepAliveEnabled by mutableStateOf(false)
     private var toastOnSuccess by mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         toastOnSuccess = Prefs.toastOnSuccess(this)
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = darkColorScheme()) {
                 val permissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { refresh() }
@@ -84,6 +90,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refresh() {
+        // onStart also runs when returning from accessibility settings, so this reflects the switch.
+        keepAliveEnabled = KeepAliveService.isEnabled(this)
         lifecycleScope.launch {
             paired = runCatching { SessionHolder.get(applicationContext).pairedDevices() }
                 .getOrElse {
@@ -91,6 +99,15 @@ class MainActivity : ComponentActivity() {
                     emptyList()
                 }
             connected = connectedMacs(applicationContext)
+        }
+    }
+
+    private fun openAccessibilitySettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            toast("Enable \"CoreSwap keep-alive\" in this list")
+        } catch (_: ActivityNotFoundException) {
+            toast("Could not open accessibility settings")
         }
     }
 
@@ -224,6 +241,26 @@ class MainActivity : ComponentActivity() {
                             toastOnSuccess = it
                             Prefs.setToastOnSuccess(applicationContext, it)
                         },
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Keep running in background")
+                        Text(
+                            if (keepAliveEnabled) {
+                                "On. Switches respond immediately."
+                            } else {
+                                "Off. Switches cold start and take longer. Turn on the " +
+                                    "\"CoreSwap keep-alive\" accessibility service to fix that."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = keepAliveEnabled,
+                        // Only the user can enable an accessibility service, so this opens settings.
+                        onCheckedChange = { openAccessibilitySettings() },
                     )
                 }
 
