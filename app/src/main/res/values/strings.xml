@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CoreSwap</string>
+    <string name="activity_anc">CoreSwap ANC</string>
+    <string name="activity_transparency">CoreSwap Transparency</string>
+    <string name="activity_normal">CoreSwap Normal</string>
+</resources>

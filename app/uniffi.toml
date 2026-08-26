@@ -1,0 +1,150 @@
+# uniffi 0.32 global config. [crates.<name>] entries merge over the crate's own
+# uniffi.toml, which is how we replace upstream's com.oppzippy packages with ours.
+# Both crate-name spellings are listed because uniffi keys off the underscored lib name.
+
+[crates.openscq30_android.bindings.kotlin]
+package_name = "com.coreswap.lib.bindings"
+android = true
+kotlin_target_version = "2.4.10"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.Uuid]
+type_name = "UUID"
+imports = ["java.util.UUID"]
+into_custom = "UUID.fromString({})"
+from_custom = "{}.toString()"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.PairedDevice]
+type_name = "PairedDevice"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.PairedDevice",
+]
+into_custom = "Json.decodeFromString<PairedDevice>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.ConnectionStatus]
+type_name = "ConnectionStatus"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.ConnectionStatus",
+]
+into_custom = "Json.decodeFromString<ConnectionStatus>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.ConnectionDescriptor]
+type_name = "ConnectionDescriptor"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.ConnectionDescriptor",
+]
+into_custom = "Json.decodeFromString<ConnectionDescriptor>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.DeviceDescriptor]
+type_name = "DeviceDescriptor"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.DeviceDescriptor",
+]
+into_custom = "Json.decodeFromString<DeviceDescriptor>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.Setting]
+type_name = "Setting"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.Setting",
+]
+into_custom = "Json.decodeFromString<Setting>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.Value]
+type_name = "Value"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.Value",
+]
+into_custom = "Json.decodeFromString<Value>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30_android.bindings.kotlin.custom_types.QuickPreset]
+type_name = "QuickPreset"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.QuickPreset",
+]
+into_custom = "Json.decodeFromString<QuickPreset>({})"
+from_custom = "Json.encodeToString({})"
+[crates.openscq30-android.bindings.kotlin]
+package_name = "com.coreswap.lib.bindings"
+android = true
+kotlin_target_version = "2.4.10"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.Uuid]
+type_name = "UUID"
+imports = ["java.util.UUID"]
+into_custom = "UUID.fromString({})"
+from_custom = "{}.toString()"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.PairedDevice]
+type_name = "PairedDevice"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.PairedDevice",
+]
+into_custom = "Json.decodeFromString<PairedDevice>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.ConnectionStatus]
+type_name = "ConnectionStatus"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.ConnectionStatus",
+]
+into_custom = "Json.decodeFromString<ConnectionStatus>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.ConnectionDescriptor]
+type_name = "ConnectionDescriptor"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.ConnectionDescriptor",
+]
+into_custom = "Json.decodeFromString<ConnectionDescriptor>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.DeviceDescriptor]
+type_name = "DeviceDescriptor"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.DeviceDescriptor",
+]
+into_custom = "Json.decodeFromString<DeviceDescriptor>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.Setting]
+type_name = "Setting"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.Setting",
+]
+into_custom = "Json.decodeFromString<Setting>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.Value]
+type_name = "Value"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.Value",
+]
+into_custom = "Json.decodeFromString<Value>({})"
+from_custom = "Json.encodeToString({})"
+
+[crates.openscq30-android.bindings.kotlin.custom_types.QuickPreset]
+type_name = "QuickPreset"
+imports = [
+    "kotlinx.serialization.json.Json",
+    "com.coreswap.lib.wrapper.QuickPreset",
+]
+into_custom = "Json.decodeFromString<QuickPreset>({})"
+from_custom = "Json.encodeToString({})"

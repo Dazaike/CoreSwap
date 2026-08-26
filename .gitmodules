@@ -1,0 +1,3 @@
+[submodule "external/OpenSCQ30"]
+	path = external/OpenSCQ30
+	url = https://github.com/Oppzippy/OpenSCQ30

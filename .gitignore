@@ -1,0 +1,8 @@
+.gradle/
+/build
+/app/build
+/buildSrc/build
+/.tmpdl
+local.properties
+/external/OpenSCQ30/target
+*.hprof
