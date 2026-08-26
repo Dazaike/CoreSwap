@@ -2,7 +2,7 @@ package com.coreswap.core
 
 import android.app.Application
 import com.coreswap.lib.bindings.LanguageIdentifier
-
+import com.coreswap.mode.AppShortcuts
 class CoreSwapApp : Application() {
     init {
         Native.initialize()
@@ -11,6 +11,7 @@ class CoreSwapApp : Application() {
     override fun onCreate() {
         super.onCreate()
         initializeI18n()
+        AppShortcuts.setup(this)
     }
 
     /**

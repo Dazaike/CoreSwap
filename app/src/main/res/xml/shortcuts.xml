@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="anc"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_anc"
+        android:shortcutShortLabel="@string/shortcut_anc_short"
+        android:shortcutLongLabel="@string/shortcut_anc_long">
+        <intent
+            android:action="com.coreswap.action.SET_ANC" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="transparency"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_transparency"
+        android:shortcutShortLabel="@string/shortcut_transparency_short"
+        android:shortcutLongLabel="@string/shortcut_transparency_long">
+        <intent
+            android:action="com.coreswap.action.SET_TRANSPARENCY" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="normal"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_normal"
+        android:shortcutShortLabel="@string/shortcut_normal_short"
+        android:shortcutLongLabel="@string/shortcut_normal_long">
+        <intent
+            android:action="com.coreswap.action.SET_NORMAL" />
+    </shortcut>
+</shortcuts>

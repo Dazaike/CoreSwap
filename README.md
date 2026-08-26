@@ -1,6 +1,6 @@
 # CoreSwap
 
-Version **0.2.0**
+Version **0.3.0**
 
 Switches the ambient sound mode of Anker Soundcore headphones and earbuds from the app or, more
 usefully, from separately launchable activities that MacroDroid (or any launcher/automation tool)
@@ -14,17 +14,24 @@ beyond a toast.
 
 These component names are the automation contract and will not change:
 
-| Mode | Component |
-| --- | --- |
-| Noise Canceling | `com.coreswap.app/com.coreswap.mode.SetNoiseCancelingActivity` |
-| Transparency | `com.coreswap.app/com.coreswap.mode.SetTransparencyActivity` |
-| Normal | `com.coreswap.app/com.coreswap.mode.SetNormalActivity` |
+| Mode | Component | Intent action |
+| --- | --- | --- |
+| Noise Canceling | `com.coreswap.app/com.coreswap.mode.SetNoiseCancelingActivity` | `com.coreswap.action.SET_ANC` |
+| Transparency | `com.coreswap.app/com.coreswap.mode.SetTransparencyActivity` | `com.coreswap.action.SET_TRANSPARENCY` |
+| Normal | `com.coreswap.app/com.coreswap.mode.SetNormalActivity` | `com.coreswap.action.SET_NORMAL` |
 
 Debug builds use the applicationId `com.coreswap.app.debug`, so the debug component is
 `com.coreswap.app.debug/com.coreswap.mode.SetTransparencyActivity`.
 
-Each mode also gets its own launcher icon, so it can be triggered from the home screen or via
-MacroDroid's "Launch Application" picker as well as "Launch Activity".
+The mode activities are exported and also answer `android.intent.action.VIEW`, so they can be
+started by component name or by their own action.
+
+## App shortcuts
+
+CoreSwap has one launcher icon. Long-press it and the launcher offers **ANC**, **Transparency**,
+and **Normal**; any of them can be dragged out to become a home-screen icon of its own. The
+shortcuts are declared statically in `res/xml/shortcuts.xml` and also published as dynamic
+shortcuts at startup (`AppShortcuts`), so launchers that only read one of the two still show them.
 
 ## First run
 
@@ -41,7 +48,8 @@ listening to is the one that gets switched.
 ## MacroDroid setup
 
 Add an action → **Launch Activity** → CoreSwap → the mode you want. If the picker does not list the
-activities, use **Launch Application** instead; both intent filters are present for that reason.
+activities, add an **Intent** action instead: intent type *Activity*, action set to the mode's
+`com.coreswap.action.SET_*` value from the table above.
 
 ## Toasts
 
@@ -93,6 +101,16 @@ Mode switching writes the `ambientSoundMode` setting with one of the values `Noi
 `Transparency`, or `Normal`. Devices that do not expose that setting report an error toast instead.
 
 ## Changelog
+
+### 0.3.0
+
+- Added launcher app shortcuts for the three modes, declared both statically
+  (`res/xml/shortcuts.xml`) and dynamically at startup, so long-pressing the CoreSwap icon switches
+  modes and each shortcut can be dragged onto the home screen.
+- The mode activities no longer register `MAIN`/`LAUNCHER`; CoreSwap now installs a single launcher
+  icon instead of four. They stay exported and gained `VIEW` plus a per-mode
+  `com.coreswap.action.SET_*` action, so component-name automation keeps working and action-based
+  automation is now possible.
 
 ### 0.2.0
 

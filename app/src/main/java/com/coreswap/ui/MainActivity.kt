@@ -54,6 +54,7 @@ import com.coreswap.lib.bindings.translateDeviceModel
 import com.coreswap.lib.wrapper.PairedDevice
 import com.coreswap.mode.ModeSwitcher
 import kotlinx.coroutines.launch
+import com.coreswap.mode.AppShortcuts
 
 private data class BondedDevice(val name: String, val macAddress: String)
 
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         toastOnSuccess = Prefs.toastOnSuccess(this)
+        AppShortcuts.setup(this)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 val permissionLauncher = rememberLauncherForActivityResult(
