@@ -77,7 +77,7 @@ target, and `cargo-ndk` 4.1.2. `local.properties` must point `sdk.dir` at the SD
 ```sh
 git submodule update --init --recursive
 ./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew assembleRelease      # unsigned
+./gradlew assembleRelease      # signed if local.properties has signing.* keys, else unsigned
 ./gradlew testDebugUnitTest    # device-selection precedence tests
 ```
 

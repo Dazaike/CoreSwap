@@ -1,5 +1,6 @@
 import com.coreswap.gradle.CopyNativeLibTask
 import com.coreswap.gradle.GenerateUniffiBindingsTask
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,6 +16,12 @@ val gradleToCargoProfiles = mapOf(
     "debug" to "debug",
     "release" to "release-android",
 )
+
+// Release signing credentials live in the untracked local.properties (signing.*); without them the
+// release build stays unsigned.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
 
 android {
     namespace = "com.coreswap.app"
@@ -32,6 +39,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (localProps.getProperty("signing.storeFile") != null) {
+            create("release") {
+                storeFile = file(localProps.getProperty("signing.storeFile"))
+                storePassword = localProps.getProperty("signing.storePassword")
+                keyAlias = localProps.getProperty("signing.keyAlias")
+                keyPassword = localProps.getProperty("signing.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         named("debug") {
             applicationIdSuffix = ".debug"
@@ -39,6 +57,7 @@ android {
         }
         named("release") {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
