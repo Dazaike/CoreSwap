@@ -4,6 +4,7 @@
     <string name="activity_anc">CoreSwap ANC</string>
     <string name="activity_transparency">CoreSwap Transparency</string>
     <string name="activity_normal">CoreSwap Normal</string>
+    <string name="activity_mode_menu">CoreSwap Modes</string>
     <string name="shortcut_anc_short">ANC</string>
     <string name="shortcut_anc_long">Noise Canceling</string>
     <string name="shortcut_transparency_short">Transparency</string>
@@ -11,6 +12,7 @@
     <string name="shortcut_normal_short">Normal</string>
     <string name="shortcut_normal_long">Normal Mode</string>
     <string name="keep_alive_label">CoreSwap keep-alive</string>
+    <string name="playback_watcher_label">CoreSwap playback watcher</string>
     <string name="keep_alive_summary">Keeps CoreSwap running so mode switches are instant</string>
     <string name="keep_alive_description">Does not read your screen. CoreSwap registers this service only so Android keeps it running in the background, which makes mode switches from MacroDroid or a quick tile respond immediately instead of cold starting.</string>
 </resources>

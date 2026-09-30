@@ -1,6 +1,6 @@
 # CoreSwap
 
-Version **0.3.0**
+Version **0.4.0**
 
 Switches the ambient sound mode of Anker Soundcore headphones and earbuds from the app or, more
 usefully, from separately launchable activities that MacroDroid (or any launcher/automation tool)
@@ -100,7 +100,29 @@ it to the platform.
 Mode switching writes the `ambientSoundMode` setting with one of the values `NoiseCanceling`,
 `Transparency`, or `Normal`. Devices that do not expose that setting report an error toast instead.
 
+### Auto-Transparency on pause
+
+An optional setting switches to Transparency when playback pauses and restores the previous mode
+when it resumes. It watches media sessions through `PlaybackWatcherService`, which needs notification
+access (it only reads play/pause state, never notifications). Buffering and track changes count as
+playing; the pause delay is adjustable from 0 to 10 seconds. Optionally, Shizuku can grant that
+access only while the setting is on. A debug switch holds the connection open and polls the mode
+every 0.5 s.
+
 ## Changelog
+
+### 0.4.0
+
+- Added **Transparency when playback pauses**: switches to Transparency after a configurable delay
+  (0–10 s) and restores the previous mode on resume, unless the mode was changed in between.
+  Driven by media-session state via the new `PlaybackWatcherService` (notification access).
+- Added optional **Shizuku** management of that notification access, granted only while the
+  feature is on.
+- Added a **Current mode** card on the main screen.
+- Added a debug switch that keeps the device connected and polls the mode every 0.5 s; mode switches
+  reuse that connection while it runs.
+- Added `ModeMenuActivity`, an overlay mode picker, with an optional home-screen icon.
+- Updated the shortcut icons.
 
 ### 0.3.0
 

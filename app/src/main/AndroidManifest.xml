@@ -78,6 +78,35 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.coreswap.mode.ModeMenuActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/activity_mode_menu"
+            android:launchMode="singleTop"
+            android:finishOnTaskLaunch="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CoreSwap.Overlay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="com.coreswap.action.SHOW_MODE_MENU" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name="com.coreswap.mode.ModeMenuLauncher"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/activity_mode_menu"
+            android:targetActivity="com.coreswap.mode.ModeMenuActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Placeholder service that only keeps the process warm; see KeepAliveService. -->
         <service
             android:name="com.coreswap.core.KeepAliveService"
@@ -91,6 +120,23 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+        <!-- Reads media session state only, to switch modes on pause/resume; see PlaybackWatcherService. -->
+        <service
+            android:name="com.coreswap.core.PlaybackWatcherService"
+            android:exported="true"
+            android:label="@string/playback_watcher_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 
 </manifest>

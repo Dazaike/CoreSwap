@@ -19,4 +19,15 @@
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:windowBackground">@android:color/transparent</item>
     </style>
+
+    <!--
+      Mode menu overlay. Translucent so the current screen stays visible under the scrim;
+      window animation is Compose-only.
+    -->
+    <style name="Theme.CoreSwap.Overlay" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

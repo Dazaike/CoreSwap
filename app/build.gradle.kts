@@ -25,8 +25,8 @@ android {
         applicationId = "com.coreswap.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
         ndk {
             abiFilters.add(abiAndroid)
         }
@@ -60,6 +60,8 @@ android {
 dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

@@ -4,6 +4,7 @@ import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -22,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +35,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,13 +50,18 @@ import androidx.lifecycle.lifecycleScope
 import com.coreswap.bluetooth.connectedMacs
 import com.coreswap.bluetooth.hasBluetoothConnectPermission
 import com.coreswap.core.KeepAliveService
+import com.coreswap.core.PlaybackWatcherService
 import com.coreswap.core.Prefs
 import com.coreswap.core.SessionHolder
+import com.coreswap.core.ShizukuAccess
 import com.coreswap.lib.bindings.deviceModels
 import com.coreswap.lib.bindings.translateDeviceModel
 import com.coreswap.lib.wrapper.PairedDevice
+import com.coreswap.mode.DebugMonitor
 import com.coreswap.mode.ModeSwitcher
+import com.coreswap.mode.ModeMenuActivity
 import kotlinx.coroutines.launch
+import rikka.shizuku.Shizuku
 import com.coreswap.mode.AppShortcuts
 
 private data class BondedDevice(val name: String, val macAddress: String)
@@ -64,10 +72,31 @@ class MainActivity : ComponentActivity() {
     private var busy by mutableStateOf(false)
     private var keepAliveEnabled by mutableStateOf(false)
     private var toastOnSuccess by mutableStateOf(true)
+    private var modeStatus by mutableStateOf("Checking…")
+    private var pauseDelaySec by mutableStateOf(2f)
+    private var transparencyOnPause by mutableStateOf(false)
+    private var playbackAccess by mutableStateOf(false)
+    private var shizukuManaged by mutableStateOf(false)
+
+    private val shizukuResult = Shizuku.OnRequestPermissionResultListener { code, grant ->
+        if (code != ShizukuAccess.REQUEST_CODE) return@OnRequestPermissionResultListener
+        if (grant == PackageManager.PERMISSION_GRANTED) {
+            applyShizukuManaged(true)
+        } else {
+            toast("Shizuku permission denied")
+        }
+    }
+
+    private var modeMenuLauncherEnabled by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Shizuku.addRequestPermissionResultListener(shizukuResult)
         toastOnSuccess = Prefs.toastOnSuccess(this)
+        transparencyOnPause = Prefs.transparencyOnPause(this)
+        shizukuManaged = Prefs.shizukuManaged(this)
+        pauseDelaySec = Prefs.pauseDelayMs(this) / 1000f
+        modeMenuLauncherEnabled = ModeMenuActivity.isLauncherEnabled(this)
         AppShortcuts.setup(this)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
@@ -89,11 +118,24 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         refresh()
+        refreshModeStatus()
+    }
+
+    override fun onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(shizukuResult)
+        super.onDestroy()
     }
 
     private fun refresh() {
         // onStart also runs when returning from accessibility settings, so this reflects the switch.
         keepAliveEnabled = KeepAliveService.isEnabled(this)
+        playbackAccess = PlaybackWatcherService.hasAccess(this)
+        // Re-applies the Shizuku-managed listener state, in case it drifted (e.g. Shizuku restarted).
+        lifecycleScope.launch {
+            ShizukuAccess.sync(applicationContext)
+            playbackAccess = PlaybackWatcherService.hasAccess(applicationContext)
+        }
+        modeMenuLauncherEnabled = ModeMenuActivity.isLauncherEnabled(this)
         lifecycleScope.launch {
             paired = runCatching { SessionHolder.get(applicationContext).pairedDevices() }
                 .getOrElse {
@@ -113,8 +155,48 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun applyShizukuManaged(enabled: Boolean) {
+        Prefs.setShizukuManaged(applicationContext, enabled)
+        shizukuManaged = enabled
+        lifecycleScope.launch {
+            ShizukuAccess.sync(applicationContext)
+            playbackAccess = PlaybackWatcherService.hasAccess(applicationContext)
+        }
+    }
+
+    private fun onShizukuSwitch(enabled: Boolean) {
+        when {
+            !enabled -> applyShizukuManaged(false)
+            !ShizukuAccess.isRunning() -> toast("Start Shizuku first")
+            ShizukuAccess.hasPermission() -> applyShizukuManaged(true)
+            else -> ShizukuAccess.requestPermission()
+        }
+    }
+
+    private fun openNotificationListenerSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            toast("Enable \"CoreSwap playback watcher\" in this list")
+        } catch (_: ActivityNotFoundException) {
+            toast("Could not open notification access settings")
+        }
+    }
+
     private fun toast(message: String) {
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun refreshModeStatus() {
+        if (busy) return
+        modeStatus = "Checking…"
+        lifecycleScope.launch {
+            modeStatus = try {
+                val result = ModeSwitcher.current(applicationContext, lifecycleScope)
+                "${result.modelName}: ${result.previousMode?.let(ModeSwitcher::label) ?: "unknown"}"
+            } catch (t: Throwable) {
+                t.message ?: "Could not read mode"
+            }
+        }
     }
 
     private fun switchMode(mode: String) {
@@ -123,6 +205,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val modelName = ModeSwitcher.apply(applicationContext, lifecycleScope, mode)
+                modeStatus = "$modelName: ${ModeSwitcher.label(mode)}"
                 if (toastOnSuccess) toast("$modelName: ${ModeSwitcher.label(mode)}")
             } catch (t: Throwable) {
                 toast(t.message ?: "Mode switch failed")
@@ -206,6 +289,37 @@ class MainActivity : ComponentActivity() {
                 }
                 Button(onClick = { bondedChoices = bondedDevices() }) { Text("Add device") }
 
+                Text("Current mode", style = MaterialTheme.typography.titleMedium)
+                val monitor by DebugMonitor.state.collectAsState()
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(if (monitor.running) monitor.text else modeStatus, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { refreshModeStatus() }, enabled = !busy && !monitor.running) {
+                            Text("Refresh")
+                        }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Debug: stay connected and poll")
+                        Text(
+                            "Holds the connection open and reads the mode every 0.5 s until switched off. " +
+                                "Uses battery; not remembered across restarts.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = monitor.running,
+                        onCheckedChange = {
+                            if (it) DebugMonitor.start(applicationContext) else DebugMonitor.stop()
+                        },
+                    )
+                }
+
                 HorizontalDivider()
 
                 Text("Switch mode", style = MaterialTheme.typography.titleMedium)
@@ -266,6 +380,95 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Transparency when playback pauses")
+                        Text(
+                            when {
+                                shizukuManaged && ShizukuAccess.hasPermission() ->
+                                    "Notification access is granted only while this is on (via Shizuku)."
+                                playbackAccess ->
+                                    "Switches to Transparency when music pauses and back when it resumes."
+                                else ->
+                                    "Needs notification access for \"CoreSwap playback watcher\" (used only " +
+                                        "to read play/pause state)."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = transparencyOnPause,
+                        onCheckedChange = {
+                            transparencyOnPause = it
+                            Prefs.setTransparencyOnPause(applicationContext, it)
+                            if (shizukuManaged && ShizukuAccess.hasPermission()) {
+                                lifecycleScope.launch {
+                                    ShizukuAccess.sync(applicationContext)
+                                    playbackAccess = PlaybackWatcherService.hasAccess(applicationContext)
+                                }
+                            } else if (it && !playbackAccess) {
+                                openNotificationListenerSettings()
+                            }
+                        },
+                    )
+                }
+
+                Column {
+                    Text(
+                        "Delay before switching: " + String.format(java.util.Locale.US, "%.1f", pauseDelaySec) + " s",
+                    )
+                    Slider(
+                        value = pauseDelaySec,
+                        onValueChange = { pauseDelaySec = it },
+                        onValueChangeFinished = {
+                            Prefs.setPauseDelayMs(applicationContext, (pauseDelaySec * 1000).toLong())
+                        },
+                        valueRange = 0f..10f,
+                        steps = 19,
+                        enabled = transparencyOnPause,
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Manage playback watcher with Shizuku")
+                        Text(
+                            "Optional. Grants notification access only while the pause feature is on, " +
+                                "so nothing runs in the background otherwise. Needs Shizuku running.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = shizukuManaged,
+                        onCheckedChange = { onShizukuSwitch(it) },
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Show mode picker on home screen")
+                        Text(
+                            if (modeMenuLauncherEnabled) {
+                                "On. A second icon opens the three-mode menu."
+                            } else {
+                                "Off. Enable to add a home-screen icon for the mode menu."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = modeMenuLauncherEnabled,
+                        onCheckedChange = {
+                            try {
+                                ModeMenuActivity.setLauncherEnabled(applicationContext, it)
+                                modeMenuLauncherEnabled = it
+                            } catch (_: Throwable) {
+                                toast("Could not update home screen icon")
+                            }
+                        },
+                    )
+                }
+
                 HorizontalDivider()
 
                 Text("MacroDroid", style = MaterialTheme.typography.titleMedium)
@@ -273,7 +476,8 @@ class MainActivity : ComponentActivity() {
                     "Launch these activities to switch modes without opening the app:\n" +
                         "com.coreswap.mode.SetNoiseCancelingActivity\n" +
                         "com.coreswap.mode.SetTransparencyActivity\n" +
-                        "com.coreswap.mode.SetNormalActivity",
+                        "com.coreswap.mode.SetNormalActivity\n" +
+                        "com.coreswap.mode.ModeMenuActivity",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
