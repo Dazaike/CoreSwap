@@ -6,16 +6,15 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,15 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,15 +31,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.coreswap.app.R
+import com.coreswap.app.data.ThemeMode
+import com.coreswap.app.data.UiSettings
+import com.coreswap.app.ui.glassDepth
+import com.coreswap.app.ui.liquidGlass
+import com.coreswap.app.ui.theme.LocalMotion
+import com.coreswap.app.ui.theme.Prism
+import com.coreswap.app.ui.theme.PrismText
+import com.coreswap.app.ui.theme.PrismTheme
 import com.coreswap.core.Prefs
+import com.coreswap.ui.ModeCell
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.shapes.RoundedRectangle
 import kotlinx.coroutines.launch
 
 class ModeMenuActivity : ComponentActivity() {
@@ -78,7 +80,8 @@ class ModeMenuActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            val ui = remember { UiSettings(theme = ThemeMode.Dark) }
+            PrismTheme(ui) {
                 ModeMenuScreen(
                     busy = busy,
                     selectedMode = selectedMode,
@@ -107,6 +110,7 @@ class ModeMenuActivity : ComponentActivity() {
         }
     }
 
+    // The activity finishes right after the switch, so an in-window toast would die with it.
     private fun toast(message: String) {
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
     }
@@ -121,105 +125,79 @@ private fun ModeMenuScreen(
 ) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
+    BackHandler(enabled = !busy, onBack = onDismiss)
 
-    Box(Modifier.fillMaxSize()) {
+    val colors = Prism.colors
+    val motion = LocalMotion.current
+    val m = motion.magnitude
+    val windowBackdrop = rememberLayerBackdrop()
+    val cardBackdrop = rememberLayerBackdrop()
+
+    // The scrim is recorded so the card glass blurs it; the window behind stays untouched.
+    Box(Modifier.fillMaxSize().layerBackdrop(windowBackdrop)) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable(enabled = !busy) { onDismiss() },
+                .background(colors.scrim)
+                .clickable(interactionSource = null, indication = null, enabled = !busy, onClick = onDismiss),
         )
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AnimatedVisibility(
             visible = shown,
-            modifier = Modifier.align(Alignment.Center),
-            enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.94f, animationSpec = tween(160)),
+            enter = fadeIn(motion.enter(240)) + scaleIn(motion.settle(), initialScale = 1f - 0.06f * m),
         ) {
-            Card(
-                modifier = Modifier
-                    .padding(horizontal = 32.dp)
-                    .widthIn(max = 360.dp)
+            Column(
+                Modifier
+                    .padding(24.dp)
+                    .widthIn(max = 380.dp)
                     .fillMaxWidth()
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                    ) { /* absorb */ },
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Column {
-                    Text(
-                        "Switch mode",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
+                    .liquidGlass(
+                        backdrop = windowBackdrop,
+                        shape = { RoundedRectangle(28.dp) },
+                        depth = glassDepth(elevation = 20.dp),
+                        blurRadius = 28.dp,
+                        refractionHeight = 16.dp,
+                        refractionAmount = 32.dp,
+                        surface = colors.background.copy(alpha = 0.88f),
+                        exportedBackdrop = cardBackdrop,
                     )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp, bottom = 16.dp),
-                    ) {
-                        ModeMenuCell(
-                            mode = ModeSwitcher.MODE_NOISE_CANCELING,
-                            icon = R.drawable.ic_shortcut_anc,
-                            busy = busy,
-                            selectedMode = selectedMode,
-                            onSelect = onSelect,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ModeMenuCell(
-                            mode = ModeSwitcher.MODE_TRANSPARENCY,
-                            icon = R.drawable.ic_shortcut_transparency,
-                            busy = busy,
-                            selectedMode = selectedMode,
-                            onSelect = onSelect,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ModeMenuCell(
-                            mode = ModeSwitcher.MODE_NORMAL,
-                            icon = R.drawable.ic_shortcut_normal,
-                            busy = busy,
-                            selectedMode = selectedMode,
-                            onSelect = onSelect,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    .clickable(interactionSource = null, indication = null) { /* absorb */ }
+                    .semantics { paneTitle = "Switch mode" }
+                    .padding(20.dp),
+            ) {
+                PrismText("Switch mode", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ModeCell(
+                        cardBackdrop,
+                        ModeSwitcher.MODE_NOISE_CANCELING,
+                        R.drawable.ic_shortcut_anc,
+                        busy,
+                        selectedMode,
+                        onSelect,
+                        Modifier.weight(1f),
+                    )
+                    ModeCell(
+                        cardBackdrop,
+                        ModeSwitcher.MODE_TRANSPARENCY,
+                        R.drawable.ic_shortcut_transparency,
+                        busy,
+                        selectedMode,
+                        onSelect,
+                        Modifier.weight(1f),
+                    )
+                    ModeCell(
+                        cardBackdrop,
+                        ModeSwitcher.MODE_NORMAL,
+                        R.drawable.ic_shortcut_normal,
+                        busy,
+                        selectedMode,
+                        onSelect,
+                        Modifier.weight(1f),
+                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ModeMenuCell(
-    mode: String,
-    icon: Int,
-    busy: Boolean,
-    selectedMode: String?,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .alpha(if (busy && selectedMode != mode) 0.4f else 1f)
-            .clickable(enabled = !busy) { onSelect(mode) }
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        if (busy && selectedMode == mode) {
-            CircularProgressIndicator(Modifier.size(32.dp), strokeWidth = 2.dp)
-        } else {
-            Icon(
-                painterResource(icon),
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            ModeSwitcher.label(mode),
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }

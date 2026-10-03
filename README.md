@@ -1,6 +1,6 @@
 # CoreSwap
 
-Version **0.4.0**
+Version **0.4.1**
 
 Switches the ambient sound mode of Anker Soundcore headphones and earbuds from the app or, more
 usefully, from separately launchable activities that MacroDroid (or any launcher/automation tool)
@@ -110,6 +110,15 @@ access only while the setting is on. A debug switch holds the connection open an
 every 0.5 s.
 
 ## Changelog
+
+### 0.4.1
+
+- Added a **Modes** app shortcut (long-press the launcher icon) that opens the mode menu.
+- Restyled the main screen and the mode menu with the Prism design language: liquid-glass
+  controls, Outfit font, dark theme. The device and model pickers are now sheets instead of
+  dialogs, and messages use in-app toasts. The mode menu and the main screen share the same
+  glass mode grid.
+- Release APKs are signed from keys in `local.properties` (`4ad12ac`).
 
 ### 0.4.0
 

@@ -1,5 +1,10 @@
 package com.coreswap.ui
 
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import com.coreswap.app.ui.glassDepth
+import com.coreswap.app.ui.liquidGlass
+import com.coreswap.app.ui.rememberPressLayer
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.ActivityNotFoundException
@@ -8,45 +13,84 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.Toast
+import com.coreswap.app.ui.LocalToasts
+import com.coreswap.app.ui.ToastKind
+import com.coreswap.app.ui.ToastState
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.coreswap.app.data.ThemeMode
+import com.coreswap.app.data.UiSettings
+import com.coreswap.app.ui.ButtonSize
+import com.coreswap.app.ui.ButtonVariant
+import com.coreswap.app.ui.GlassButton
+import com.coreswap.app.ui.GlassSlider
+import com.coreswap.app.ui.GlassSwitch
+import com.coreswap.app.ui.GlassTextField
+import com.coreswap.app.ui.HapticKind
+import com.coreswap.app.ui.LocalHaptics
+import com.coreswap.app.ui.OverlayHost
+import com.coreswap.app.ui.SheetOverlay
+import com.coreswap.app.ui.Spinner
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
+import com.coreswap.app.R
+import com.coreswap.app.ui.PrismIcon
+import com.coreswap.app.ui.focusRing
+import com.coreswap.app.ui.pressInput
+import com.coreswap.app.ui.rememberPressState
+import com.coreswap.app.ui.theme.Prism
+import com.coreswap.app.ui.theme.PrismText
+import com.coreswap.app.ui.theme.PrismTheme
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.shapes.RoundedRectangle
 import com.coreswap.bluetooth.connectedMacs
 import com.coreswap.bluetooth.hasBluetoothConnectPermission
 import com.coreswap.core.KeepAliveService
@@ -70,6 +114,8 @@ class MainActivity : ComponentActivity() {
     private var paired by mutableStateOf<List<PairedDevice>>(emptyList())
     private var connected by mutableStateOf<Set<String>>(emptySet())
     private var busy by mutableStateOf(false)
+    private var toasts: ToastState? = null
+    private var switchingMode by mutableStateOf<String?>(null)
     private var keepAliveEnabled by mutableStateOf(false)
     private var toastOnSuccess by mutableStateOf(true)
     private var modeStatus by mutableStateOf("Checking…")
@@ -83,7 +129,7 @@ class MainActivity : ComponentActivity() {
         if (grant == PackageManager.PERMISSION_GRANTED) {
             applyShizukuManaged(true)
         } else {
-            toast("Shizuku permission denied")
+            toast("Shizuku permission denied", ToastKind.Error)
         }
     }
 
@@ -99,7 +145,13 @@ class MainActivity : ComponentActivity() {
         modeMenuLauncherEnabled = ModeMenuActivity.isLauncherEnabled(this)
         AppShortcuts.setup(this)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            val ui = remember { UiSettings(theme = ThemeMode.Dark) }
+            PrismTheme(ui) {
+                DisposableEffect(Unit) {
+                    val bars = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                    enableEdgeToEdge(bars, bars)
+                    onDispose {}
+                }
                 val permissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { refresh() }
@@ -110,9 +162,21 @@ class MainActivity : ComponentActivity() {
                         permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                     }
                 }
-                MainScreen()
+                OverlayHost { MainScreen() }
             }
         }
+    }
+
+    /** Escape dismisses the topmost overlay (every Prism overlay registers a BackHandler). */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (super.dispatchKeyEvent(event)) return true
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE && event.action == KeyEvent.ACTION_UP &&
+            onBackPressedDispatcher.hasEnabledCallbacks()
+        ) {
+            onBackPressedDispatcher.onBackPressed()
+            return true
+        }
+        return false
     }
 
     override fun onStart() {
@@ -139,7 +203,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             paired = runCatching { SessionHolder.get(applicationContext).pairedDevices() }
                 .getOrElse {
-                    toast(it.message ?: "Could not read configured devices")
+                    toast(it.message ?: "Could not read configured devices", ToastKind.Error)
                     emptyList()
                 }
             connected = connectedMacs(applicationContext)
@@ -151,7 +215,7 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             toast("Enable \"CoreSwap keep-alive\" in this list")
         } catch (_: ActivityNotFoundException) {
-            toast("Could not open accessibility settings")
+            toast("Could not open accessibility settings", ToastKind.Error)
         }
     }
 
@@ -178,12 +242,13 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             toast("Enable \"CoreSwap playback watcher\" in this list")
         } catch (_: ActivityNotFoundException) {
-            toast("Could not open notification access settings")
+            toast("Could not open notification access settings", ToastKind.Error)
         }
     }
 
-    private fun toast(message: String) {
-        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+    /** Shown through the Prism toast layer; dropped while the UI is not composed (nobody could see it). */
+    private fun toast(message: String, kind: ToastKind = ToastKind.Info) {
+        toasts?.show(message, kind)
     }
 
     private fun refreshModeStatus() {
@@ -202,15 +267,17 @@ class MainActivity : ComponentActivity() {
     private fun switchMode(mode: String) {
         if (busy) return
         busy = true
+        switchingMode = mode
         lifecycleScope.launch {
             try {
                 val modelName = ModeSwitcher.apply(applicationContext, lifecycleScope, mode)
                 modeStatus = "$modelName: ${ModeSwitcher.label(mode)}"
-                if (toastOnSuccess) toast("$modelName: ${ModeSwitcher.label(mode)}")
+                if (toastOnSuccess) toast("$modelName: ${ModeSwitcher.label(mode)}", ToastKind.Success)
             } catch (t: Throwable) {
-                toast(t.message ?: "Mode switch failed")
+                toast(t.message ?: "Mode switch failed", ToastKind.Error)
             } finally {
                 busy = false
+                switchingMode = null
             }
         }
     }
@@ -222,7 +289,7 @@ class MainActivity : ComponentActivity() {
                     .pair(PairedDevice(macAddress = macAddress, model = model, isDemo = false))
                 Prefs.addToPriority(applicationContext, macAddress)
             } catch (t: Throwable) {
-                toast(t.message ?: "Could not add device")
+                toast(t.message ?: "Could not add device", ToastKind.Error)
             }
             refresh()
         }
@@ -234,7 +301,7 @@ class MainActivity : ComponentActivity() {
                 SessionHolder.get(applicationContext).unpair(macAddress)
                 Prefs.removeFromPriority(applicationContext, macAddress)
             } catch (t: Throwable) {
-                toast(t.message ?: "Could not remove device")
+                toast(t.message ?: "Could not remove device", ToastKind.Error)
             }
             refresh()
         }
@@ -252,138 +319,177 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainScreen() {
-        var pendingDevice by remember { mutableStateOf<BondedDevice?>(null) }
-        var bondedChoices by remember { mutableStateOf<List<BondedDevice>?>(null) }
+        val toastState = LocalToasts.current
+        DisposableEffect(toastState) {
+            toasts = toastState
+            onDispose { toasts = null }
+        }
+        var bondedOpen by remember { mutableStateOf(false) }
+        var bondedList by remember { mutableStateOf<List<BondedDevice>>(emptyList()) }
+        var modelOpen by remember { mutableStateOf(false) }
+        // Kept after dismissal so the sheet's exit animation still has content to draw.
+        var modelDevice by remember { mutableStateOf<BondedDevice?>(null) }
 
-        Scaffold { insets ->
-            Column(
-                modifier = Modifier
-                    .padding(insets)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Devices", style = MaterialTheme.typography.titleMedium)
-                if (paired.isEmpty()) {
-                    Text(
-                        "No devices configured yet. Add the Soundcore device you want to control.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                paired.forEach { device ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(translateDeviceModel(device.model))
-                                Text(device.macAddress, style = MaterialTheme.typography.bodySmall)
-                                if (device.macAddress.uppercase() in connected.map { it.uppercase() }) {
-                                    Text("connected", style = MaterialTheme.typography.labelMedium)
+        val colors = Prism.colors
+        val accent = Prism.accent
+        val pageBackdrop = rememberLayerBackdrop()
+        val sheetBackdrop = rememberLayerBackdrop()
+
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().layerBackdrop(sheetBackdrop)) {
+                // Controls refract only this flat layer, never each other.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .layerBackdrop(pageBackdrop)
+                        .drawBehind { drawRect(PageBackground) },
+                )
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    PrismText("CoreSwap", fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+
+                    Section("Devices", caption = if (paired.isEmpty()) {
+                        "No devices configured yet. Add the Soundcore device you want to control."
+                    } else {
+                        null
+                    }) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            paired.forEach { device ->
+                                val isConnected = device.macAddress.uppercase() in connected.map { it.uppercase() }
+                                Frame {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            PrismText(translateDeviceModel(device.model), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            PrismText(device.macAddress, fontSize = 13.sp, color = colors.subText)
+                                            if (isConnected) {
+                                                PrismText("connected", fontSize = 13.sp, color = accent, fontWeight = FontWeight.Medium)
+                                            }
+                                        }
+                                        Spacer(Modifier.padding(start = 12.dp))
+                                        GlassButton(
+                                            pageBackdrop,
+                                            "Remove",
+                                            { removeDevice(device.macAddress) },
+                                            variant = ButtonVariant.Outlined,
+                                            size = ButtonSize.Small,
+                                        )
+                                    }
                                 }
                             }
-                            TextButton(onClick = { removeDevice(device.macAddress) }) { Text("Remove") }
+                            GlassButton(
+                                pageBackdrop,
+                                "Add device",
+                                {
+                                    bondedList = bondedDevices()
+                                    bondedOpen = true
+                                },
+                                variant = ButtonVariant.Primary,
+                            )
                         }
                     }
-                }
-                Button(onClick = { bondedChoices = bondedDevices() }) { Text("Add device") }
 
-                Text("Current mode", style = MaterialTheme.typography.titleMedium)
-                val monitor by DebugMonitor.state.collectAsState()
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(if (monitor.running) monitor.text else modeStatus, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { refreshModeStatus() }, enabled = !busy && !monitor.running) {
-                            Text("Refresh")
+                    Section("Current mode") {
+                        val monitor by DebugMonitor.state.collectAsState()
+                        Frame {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                PrismText(
+                                    if (monitor.running) monitor.text else modeStatus,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(Modifier.padding(start = 12.dp))
+                                GlassButton(
+                                    pageBackdrop,
+                                    "Refresh",
+                                    { refreshModeStatus() },
+                                    size = ButtonSize.Small,
+                                    enabled = !busy && !monitor.running,
+                                )
+                            }
                         }
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Debug: stay connected and poll")
-                        Text(
+                        Spacer(Modifier.height(8.dp))
+                        SettingRow(
+                            "Debug: stay connected and poll",
                             "Holds the connection open and reads the mode every 0.5 s until switched off. " +
                                 "Uses battery; not remembered across restarts.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        ) {
+                            GlassSwitch(
+                                checked = monitor.running,
+                                onCheckedChange = {
+                                    if (it) DebugMonitor.start(applicationContext) else DebugMonitor.stop()
+                                },
+                                contentDescription = "Debug: stay connected and poll",
+                            )
+                        }
                     }
-                    Switch(
-                        checked = monitor.running,
-                        onCheckedChange = {
-                            if (it) DebugMonitor.start(applicationContext) else DebugMonitor.stop()
-                        },
-                    )
-                }
 
-                HorizontalDivider()
-
-                Text("Switch mode", style = MaterialTheme.typography.titleMedium)
-                Button(
-                    onClick = { switchMode(ModeSwitcher.MODE_NOISE_CANCELING) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Noise Canceling") }
-                Button(
-                    onClick = { switchMode(ModeSwitcher.MODE_TRANSPARENCY) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Transparency") }
-                Button(
-                    onClick = { switchMode(ModeSwitcher.MODE_NORMAL) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Normal") }
-                if (busy) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
-                        Text("Switching…")
+                    Section("Switch mode") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ModeCell(
+                                pageBackdrop,
+                                ModeSwitcher.MODE_NOISE_CANCELING,
+                                R.drawable.ic_shortcut_anc,
+                                busy,
+                                switchingMode,
+                                ::switchMode,
+                                Modifier.weight(1f),
+                            )
+                            ModeCell(
+                                pageBackdrop,
+                                ModeSwitcher.MODE_TRANSPARENCY,
+                                R.drawable.ic_shortcut_transparency,
+                                busy,
+                                switchingMode,
+                                ::switchMode,
+                                Modifier.weight(1f),
+                            )
+                            ModeCell(
+                                pageBackdrop,
+                                ModeSwitcher.MODE_NORMAL,
+                                R.drawable.ic_shortcut_normal,
+                                busy,
+                                switchingMode,
+                                ::switchMode,
+                                Modifier.weight(1f),
+                            )
+                        }
                     }
-                }
 
-                HorizontalDivider()
+                    Section("Behavior") {
+                        SettingRow("Show confirmation toast") {
+                            GlassSwitch(
+                                checked = toastOnSuccess,
+                                onCheckedChange = {
+                                    toastOnSuccess = it
+                                    Prefs.setToastOnSuccess(applicationContext, it)
+                                },
+                                contentDescription = "Show confirmation toast",
+                            )
+                        }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Show confirmation toast")
-                    }
-                    Switch(
-                        checked = toastOnSuccess,
-                        onCheckedChange = {
-                            toastOnSuccess = it
-                            Prefs.setToastOnSuccess(applicationContext, it)
-                        },
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Keep running in background")
-                        Text(
+                        SettingRow(
+                            "Keep running in background",
                             if (keepAliveEnabled) {
                                 "On. Switches respond immediately."
                             } else {
                                 "Off. Switches cold start and take longer. Turn on the " +
                                     "\"CoreSwap keep-alive\" accessibility service to fix that."
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Switch(
-                        checked = keepAliveEnabled,
-                        // Only the user can enable an accessibility service, so this opens settings.
-                        onCheckedChange = { openAccessibilitySettings() },
-                    )
-                }
+                        ) {
+                            GlassSwitch(
+                                checked = keepAliveEnabled,
+                                // Only the user can enable an accessibility service, so this opens settings.
+                                onCheckedChange = { openAccessibilitySettings() },
+                                contentDescription = "Keep running in background",
+                            )
+                        }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Transparency when playback pauses")
-                        Text(
+                        SettingRow(
+                            "Transparency when playback pauses",
                             when {
                                 shizukuManaged && ShizukuAccess.hasPermission() ->
                                     "Notification access is granted only while this is on (via Shizuku)."
@@ -393,187 +499,254 @@ class MainActivity : ComponentActivity() {
                                     "Needs notification access for \"CoreSwap playback watcher\" (used only " +
                                         "to read play/pause state)."
                             },
-                            style = MaterialTheme.typography.bodySmall,
+                        ) {
+                            GlassSwitch(
+                                checked = transparencyOnPause,
+                                onCheckedChange = {
+                                    transparencyOnPause = it
+                                    Prefs.setTransparencyOnPause(applicationContext, it)
+                                    if (shizukuManaged && ShizukuAccess.hasPermission()) {
+                                        lifecycleScope.launch {
+                                            ShizukuAccess.sync(applicationContext)
+                                            playbackAccess = PlaybackWatcherService.hasAccess(applicationContext)
+                                        }
+                                    } else if (it && !playbackAccess) {
+                                        openNotificationListenerSettings()
+                                    }
+                                },
+                                contentDescription = "Transparency when playback pauses",
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                            PrismText("Delay before switching", Modifier.weight(1f))
+                            PrismText(
+                                String.format(java.util.Locale.US, "%.1f s", pauseDelaySec),
+                                fontSize = 14.sp,
+                                color = colors.subText,
+                            )
+                        }
+                        GlassSlider(
+                            value = pauseDelaySec / PauseDelayMaxSec,
+                            onValueChange = { pauseDelaySec = it * PauseDelayMaxSec },
+                            enabled = transparencyOnPause,
+                            stepCount = 20,
+                            onValueChangeFinished = {
+                                Prefs.setPauseDelayMs(applicationContext, (pauseDelaySec * 1000).toLong())
+                            },
+                            contentDescription = "Delay before switching",
                         )
-                    }
-                    Switch(
-                        checked = transparencyOnPause,
-                        onCheckedChange = {
-                            transparencyOnPause = it
-                            Prefs.setTransparencyOnPause(applicationContext, it)
-                            if (shizukuManaged && ShizukuAccess.hasPermission()) {
-                                lifecycleScope.launch {
-                                    ShizukuAccess.sync(applicationContext)
-                                    playbackAccess = PlaybackWatcherService.hasAccess(applicationContext)
-                                }
-                            } else if (it && !playbackAccess) {
-                                openNotificationListenerSettings()
-                            }
-                        },
-                    )
-                }
 
-                Column {
-                    Text(
-                        "Delay before switching: " + String.format(java.util.Locale.US, "%.1f", pauseDelaySec) + " s",
-                    )
-                    Slider(
-                        value = pauseDelaySec,
-                        onValueChange = { pauseDelaySec = it },
-                        onValueChangeFinished = {
-                            Prefs.setPauseDelayMs(applicationContext, (pauseDelaySec * 1000).toLong())
-                        },
-                        valueRange = 0f..10f,
-                        steps = 19,
-                        enabled = transparencyOnPause,
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Manage playback watcher with Shizuku")
-                        Text(
+                        SettingRow(
+                            "Manage playback watcher with Shizuku",
                             "Optional. Grants notification access only while the pause feature is on, " +
                                 "so nothing runs in the background otherwise. Needs Shizuku running.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Switch(
-                        checked = shizukuManaged,
-                        onCheckedChange = { onShizukuSwitch(it) },
-                    )
-                }
+                        ) {
+                            GlassSwitch(
+                                checked = shizukuManaged,
+                                onCheckedChange = { onShizukuSwitch(it) },
+                                contentDescription = "Manage playback watcher with Shizuku",
+                            )
+                        }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Show mode picker on home screen")
-                        Text(
+                        SettingRow(
+                            "Show mode picker on home screen",
                             if (modeMenuLauncherEnabled) {
                                 "On. A second icon opens the three-mode menu."
                             } else {
                                 "Off. Enable to add a home-screen icon for the mode menu."
                             },
-                            style = MaterialTheme.typography.bodySmall,
+                        ) {
+                            GlassSwitch(
+                                checked = modeMenuLauncherEnabled,
+                                onCheckedChange = {
+                                    try {
+                                        ModeMenuActivity.setLauncherEnabled(applicationContext, it)
+                                        modeMenuLauncherEnabled = it
+                                    } catch (_: Throwable) {
+                                        toast("Could not update home screen icon", ToastKind.Error)
+                                    }
+                                },
+                                contentDescription = "Show mode picker on home screen",
+                            )
+                        }
+                    }
+
+                    Section(
+                        "MacroDroid",
+                        caption = "Launch these activities to switch modes without opening the app:",
+                    ) {
+                        PrismText(
+                            "com.coreswap.mode.SetNoiseCancelingActivity\n" +
+                                "com.coreswap.mode.SetTransparencyActivity\n" +
+                                "com.coreswap.mode.SetNormalActivity\n" +
+                                "com.coreswap.mode.ModeMenuActivity",
+                            fontSize = 13.sp,
+                            color = colors.subText,
                         )
                     }
-                    Switch(
-                        checked = modeMenuLauncherEnabled,
-                        onCheckedChange = {
-                            try {
-                                ModeMenuActivity.setLauncherEnabled(applicationContext, it)
-                                modeMenuLauncherEnabled = it
-                            } catch (_: Throwable) {
-                                toast("Could not update home screen icon")
-                            }
-                        },
-                    )
+                    Spacer(Modifier.height(24.dp))
                 }
+            }
 
-                HorizontalDivider()
-
-                Text("MacroDroid", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Launch these activities to switch modes without opening the app:\n" +
-                        "com.coreswap.mode.SetNoiseCancelingActivity\n" +
-                        "com.coreswap.mode.SetTransparencyActivity\n" +
-                        "com.coreswap.mode.SetNormalActivity\n" +
-                        "com.coreswap.mode.ModeMenuActivity",
-                    style = MaterialTheme.typography.bodySmall,
+            // Sheets sit outside the recorded layer so they never refract themselves.
+            BondedDeviceSheet(
+                backdrop = sheetBackdrop,
+                visible = bondedOpen,
+                devices = bondedList,
+                onDismiss = { bondedOpen = false },
+                onPick = {
+                    bondedOpen = false
+                    modelDevice = it
+                    modelOpen = true
+                },
+            )
+            modelDevice?.let { device ->
+                ModelSheet(
+                    backdrop = sheetBackdrop,
+                    visible = modelOpen,
+                    device = device,
+                    onDismiss = { modelOpen = false },
+                    onPick = { model ->
+                        modelOpen = false
+                        addDevice(device.macAddress, model)
+                    },
                 )
             }
         }
+    }
 
-        bondedChoices?.let { choices ->
-            BondedDevicePickerDialog(
-                devices = choices,
-                onDismiss = { bondedChoices = null },
-                onPick = {
-                    bondedChoices = null
-                    pendingDevice = it
-                },
-            )
-        }
+    private companion object {
+        const val PauseDelayMaxSec = 10f
+    }
+}
 
-        pendingDevice?.let { device ->
-            ModelPickerDialog(
-                device = device,
-                onDismiss = { pendingDevice = null },
-                onPick = { model ->
-                    pendingDevice = null
-                    addDevice(device.macAddress, model)
-                },
-            )
+private val RowShape = RoundedRectangle(14.dp)
+private val PageBackground = Color(0xFF1A1A20)
+/** Plain text header over a group; content stays flat on the page. */
+@Composable
+private fun Section(title: String, caption: String? = null, content: @Composable () -> Unit) {
+    val colors = Prism.colors
+    Column(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(28.dp))
+        PrismText(title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.subText)
+        if (caption != null) {
+            Spacer(Modifier.height(2.dp))
+            PrismText(caption, fontSize = 13.sp, color = colors.subText)
         }
+        Spacer(Modifier.height(12.dp))
+        content()
+    }
+}
+
+/** Outlined (not glass) frame, so glass inside never shows a nesting hole. */
+@Composable
+private fun Frame(content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .border(1.dp, Prism.colors.outline, RoundedRectangle(24.dp))
+            .padding(12.dp),
+    ) { content() }
+}
+
+/** Label (and optional caption) on the left, a control on the right. */
+@Composable
+private fun SettingRow(label: String, caption: String? = null, trailing: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            PrismText(label)
+            if (caption != null) PrismText(caption, fontSize = 13.sp, color = Prism.subText)
+        }
+        Spacer(Modifier.padding(start = 12.dp))
+        trailing()
+    }
+}
+
+/** Ghost row: immediate press dip lighting, no ripple. */
+@Composable
+private fun PickerRow(title: String, subtitle: String? = null, onClick: () -> Unit) {
+    val press = rememberPressState()
+    val colors = Prism.colors
+    val haptics = LocalHaptics.current
+    Column(
+        Modifier
+            .focusRing(press, RowShape, Prism.accent.copy(alpha = 0.85f))
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .drawBehind {
+                val a = maxOf(press.hover, press.progress * 1.6f)
+                if (a > 0f) {
+                    drawOutline(
+                        outline = RowShape.createOutline(size, layoutDirection, this),
+                        color = colors.fillWeak.copy(alpha = (colors.fillWeak.alpha * a).coerceAtMost(1f)),
+                    )
+                }
+            }
+            .pressInput(press)
+            .clickable(interactionSource = press.interactionSource, indication = null, role = Role.Button) {
+                haptics.perform(HapticKind.Press)
+                onClick()
+            }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        PrismText(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (subtitle != null) PrismText(subtitle, fontSize = 13.sp, color = colors.subText, maxLines = 1)
     }
 }
 
 @Composable
-private fun BondedDevicePickerDialog(
+private fun BoxScope.BondedDeviceSheet(
+    backdrop: Backdrop,
+    visible: Boolean,
     devices: List<BondedDevice>,
     onDismiss: () -> Unit,
     onPick: (BondedDevice) -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Pick a paired bluetooth device") },
-        text = {
-            if (devices.isEmpty()) {
-                Text("No bluetooth devices are paired with this phone, or they are all already configured.")
-            } else {
-                LazyColumn {
-                    items(devices) { device ->
-                        TextButton(
-                            onClick = { onPick(device) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(device.name)
-                                Text(device.macAddress, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                }
+    SheetOverlay(backdrop, visible, onDismiss, heightFraction = 0.6f) { surface ->
+        PrismText("Pick a paired bluetooth device", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(12.dp))
+        if (devices.isEmpty()) {
+            PrismText(
+                "No bluetooth devices are paired with this phone, or they are all already configured.",
+                color = Prism.subText,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            LazyColumn(Modifier.weight(1f)) {
+                items(devices) { device -> PickerRow(device.name, device.macAddress) { onPick(device) } }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        }
+        Spacer(Modifier.height(12.dp))
+        GlassButton(surface, "Cancel", onDismiss, Modifier.fillMaxWidth(), variant = ButtonVariant.Outlined)
+    }
 }
 
 @Composable
-private fun ModelPickerDialog(device: BondedDevice, onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    var filter by remember { mutableStateOf("") }
+private fun BoxScope.ModelSheet(
+    backdrop: Backdrop,
+    visible: Boolean,
+    device: BondedDevice,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+) {
+    val filter = rememberTextFieldState()
     // The engine cannot detect the model over RFCOMM, so the user has to say which one this is.
     val models = remember { deviceModels().map { it to translateDeviceModel(it) }.sortedBy { it.second } }
-    val shown = models.filter { (_, translated) -> translated.contains(filter, ignoreCase = true) }
+    val query = filter.text.toString()
+    val shown = models.filter { (_, translated) -> translated.contains(query, ignoreCase = true) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Which model is ${device.name}?") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = filter,
-                    onValueChange = { filter = it },
-                    label = { Text("Search models") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                LazyColumn {
-                    items(shown) { (model, translated) ->
-                        TextButton(
-                            onClick = { onPick(model) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                translated,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+    SheetOverlay(backdrop, visible, onDismiss, heightFraction = 0.78f) { surface ->
+        PrismText("Which model is ${device.name}?", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(filter, "Search models", Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(Modifier.weight(1f)) {
+            items(shown) { (model, translated) -> PickerRow(translated) { onPick(model) } }
+        }
+        Spacer(Modifier.height(12.dp))
+        GlassButton(surface, "Cancel", onDismiss, Modifier.fillMaxWidth(), variant = ButtonVariant.Outlined)
+    }
 }

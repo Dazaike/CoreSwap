@@ -2,6 +2,20 @@
 
 Releases before 0.4.0 are recorded in the Changelog section of `README.md`.
 
+## [v0.4.1] - 2026-10-02
+
+### Added
+- `Modes` app shortcut that opens `ModeMenuActivity`.
+- Prism design-language kit (`com.coreswap.app.ui`): glass buttons, switch, slider, text field,
+  sheets, toasts, Outfit font, icons.
+
+### Changed
+- Main screen and `ModeMenuActivity` restyled with Prism: glass mode grid (shared `ModeCell`),
+  glass switches and slider, dark page background. Device and model pickers are sheets instead of
+  dialogs; messages use Prism toasts (the mode menu still uses a system toast because it closes
+  right after a switch).
+- Build: release APKs are signed from `local.properties` keys (`4ad12ac`).
+
 ## [v0.4.0] - 2026-09-30
 
 ### Added

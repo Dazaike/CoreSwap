@@ -5,6 +5,8 @@
     <string name="activity_transparency">CoreSwap Transparency</string>
     <string name="activity_normal">CoreSwap Normal</string>
     <string name="activity_mode_menu">CoreSwap Modes</string>
+    <string name="shortcut_menu_short">Modes</string>
+    <string name="shortcut_menu_long">Mode menu</string>
     <string name="shortcut_anc_short">ANC</string>
     <string name="shortcut_anc_long">Noise Canceling</string>
     <string name="shortcut_transparency_short">Transparency</string>

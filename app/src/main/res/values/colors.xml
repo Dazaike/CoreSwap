@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FF1E88E5</color>
-    <!-- Matches the Compose dark scheme background so launch does not flash a lighter surface. -->
-    <color name="background">#FF101418</color>
+    <!-- Dark page background; launch does not flash a lighter surface. Keep in sync with PageBackground. -->
+    <color name="background">#FF1A1A20</color>
 </resources>
